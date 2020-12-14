@@ -1,0 +1,40 @@
+data final;
+infile “” delimiter=’,’ missover dsd;
+input id time txt health agegroup;
+run;
+/*Define variables*/
+data final;
+set final;
+if agegroup = '15-24' then age = 1;
+else if agegroup = '25-34' then age = 2;
+else if agegroup = '35+' then age = 3;
+if txt = "Control" then trt = 0;
+else if txt = "Intervention" then trt = 1;
+if health = "Good" then x = 1;
+else if health = "Poor" then x = 0;
+
+run;
+ 
+/* Table 1 statistics */
+proc freq data = final;
+table txt x age health*(trt age)/ chisq measures;
+run;
+
+*Testing 3 models*
+
+proc genmod data=final;
+class id time (ref=’0’) / param=ref;
+model x=time trt agegroup trt*time time* trt*age time*trt*age/dist=nor link=identity type3 wald;
+repeated subject=id/type=cs modelse;
+run;
+
+proc genmod data=final;
+class id time (ref=’0’) / param=ref;
+model x=time trt agegroup trt*time time* trt*age time*trt*age/dist=nor link=identity type3 wald;
+repeated subject=id/type=AR(1) modelse;
+run;
+proc genmod data=final;
+class id time (ref=’0’) / param=ref;
+model x=time trt agegroup trt*time time* trt*age time*trt*age/dist=nor link=identity type3 wald;
+repeated subject=id/type=UN modelse;
+run;
