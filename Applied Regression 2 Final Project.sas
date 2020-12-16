@@ -8,6 +8,32 @@ dbms = csv replace;
 getnames = yes;
 run;
 
+/* Descriptive statistics at baseline*/
+proc freq data = final;
+where time = 1;
+table txt health agegroup health*(txt agegroup)/ chisq measures;
+run;
+
+/* Descriptive statistics at 3 months*/
+proc freq data = final;
+where time = 2;
+table txt health agegroup health*(txt agegroup)/ chisq measures;
+run;
+
+/* Descriptive statistics at 6 months*/
+proc freq data = final;
+where time = 3;
+table txt health agegroup health*(txt agegroup)/ chisq measures;
+run;
+
+/* Descriptive statistics at 12 months */
+proc freq data = final;
+where time = 4;
+table txt health agegroup health*(txt agegroup)/ chisq measures;
+run;
+
+/* Frequency in the 35+ age group is small so will combine with 25-34 age group. Converting values to numeric for analysis */
+
 data final;
 set final;
 if txt = "Control" then trt = 0;
@@ -16,40 +42,67 @@ if health = "Good" then hlth = 1;
 else if health = "Poor" then hlth = 0;
 if agegroup = '15-24' then age = 1;
 else if agegroup = '25-34' then age = 2;
-else if agegroup = '35+' then age = 3;
+else if agegroup = '35+' then age = 2;
+run;
+
+/* Descriptive statistics at baseline with new coded variables*/
+proc freq data = final;
+where time = 1;
+table trt hlth age hlth*(trt age)/ chisq measures;
+run;
+
+/* Descriptive statistics at 3 months*/
+proc freq data = final;
+where time = 2;
+table trt hlth age hlth*(trt age)/ chisq measures;
+run;
+
+/* Descriptive statistics at 6 months*/
+proc freq data = final;
+where time = 3;
+table trt hlth age hlth*(trt age)/ chisq measures;
+run;
+
+/* Descriptive statistics at 12 months */
+proc freq data = final;
+where time = 4;
+table trt hlth age hlth*(trt age)/ chisq measures;
 run;
  
-/* Descriptive statistics */
-proc freq data = final;
-table txt health agegroup health*(txt agegroup)/ chisq measures;
+/* Run GEE model with three way interaction between treatment, time, and age. Will use AR(1) correlation matrix for now */
+proc genmod data=final descending;
+class trt (ref = '0') time (ref = '1') id (ref = first) age (ref = '1')/param=ref;
+model hlth = trt time age trt*time time*age trt*age trt*time*age /dist=bin link=logit type3 wald;
+repeated subject=id /type=AR(1) modelse;
 run;
 
+/* Three-way interaction and interaction between treatment and age are not significant, so will remove from the model. */
 
-/* Create GEE model and test to see which correlation matrix is appropriate */
+/* Create final GEE model and test to see which correlation matrix is appropriate */
 /* UN assumption */
 proc genmod data=final descending;
 class trt (ref = '0') time (ref = '1') id (ref = first) age (ref = '1')/param=ref;
-model hlth = trt time age trt*time time*age trt*age trt*time*age /dist=nor link=identity type3 wald;
+model hlth = trt time age trt*time time*age /dist=bin link=logit type3 wald;
 repeated subject=id /type=un modelse;
 run;
-/* QIC = 295.0176 */
+/* QIC = 337.6207 */
 
 /* CS assumption */
 proc genmod data=final descending;
 class trt (ref = '0') time (ref = '1') id (ref = first) age (ref = '1')/param=ref;
-model hlth = trt time age trt*time time*age trt*age trt*time*age /dist=nor link=identity type3 wald;
+model hlth = trt time age trt*time time*age /dist=bin link=logit type3 wald;
 repeated subject=id /type=cs modelse;
 run;
-/* QIC = 294.1921 */
+/* QIC = 336.7727 */
 
 /* AR(1) assumption */
 proc genmod data=final descending;
 class trt (ref = '0') time (ref = '1') id (ref = first) age (ref = '1')/param=ref;
-model hlth = trt time age trt*time time*age trt*age trt*time*age /dist=nor link=identity type3 wald;
+model hlth = trt time age trt*time time*age /dist=bin link=logit type3 wald;
 repeated subject=id /type=AR(1) modelse;
 run;
-/* QIC = 294.5520 */
+/* QIC = 337.1355 */
 
-/* Best to use model with CS as the correlation matrix */
+/* Best to use model with CS as the correlation matrix, since that model has the smallest QIC*/
 
 
